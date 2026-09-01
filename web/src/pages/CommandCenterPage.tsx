@@ -5,14 +5,12 @@ import {
   ArrowUpRight,
   Bot,
   CalendarClock,
-  CheckCircle2,
   CircleAlert,
   Clock3,
   Cpu,
   Database,
   Gauge,
   MessageSquareText,
-  Radio,
   RefreshCw,
   ServerCog,
   ShieldCheck,
@@ -140,6 +138,8 @@ export default function CommandCenterPage() {
   };
 
   useEffect(() => {
+    // Initial telemetry synchronization intentionally owns this page's loading state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, []);
 
@@ -187,7 +187,7 @@ export default function CommandCenterPage() {
       <section className="cc-hero" aria-labelledby="command-center-title">
         <div className="cc-hero-copy">
           <div className="cc-kicker-row">
-            <span className="cc-kicker">Labophase / native Hermes control plane</span>
+            <span className="cc-kicker">Labophase / native Hermes session gateway</span>
             <span className={`cc-live ${gatewayOnline ? "is-live" : "is-down"}`}>
               <span aria-hidden="true" />
               {gatewayOnline ? "Gateway online" : "Gateway offline"}
@@ -210,7 +210,7 @@ export default function CommandCenterPage() {
             <RefreshCw className={loading ? "cc-spin" : ""} aria-hidden="true" />
             Refresh
           </button>
-          <small>
+          <small aria-live="polite">
             {refreshedAt ? `Synced ${refreshedAt.toLocaleTimeString()}` : "Not yet synced"}
           </small>
         </div>
@@ -251,7 +251,12 @@ export default function CommandCenterPage() {
               <div className="cc-empty">No sessions have reported activity yet.</div>
             ) : (
               data.sessions.map((session, index) => (
-                <Link className="cc-session" to={`/sessions/${session.id}`} key={session.id}>
+                <Link
+                  className="cc-session"
+                  to={`/chat?resume=${encodeURIComponent(session.id)}`}
+                  key={session.id}
+                  aria-label={`Resume ${session.title || "Untitled Hermes session"} in native chat`}
+                >
                   <div className="cc-session-order">{String(index + 1).padStart(2, "0")}</div>
                   <div className="cc-session-main">
                     <div>
@@ -298,7 +303,7 @@ export default function CommandCenterPage() {
           </div>
           <div className="cc-security-line">
             <ShieldCheck aria-hidden="true" />
-            <span>Native authenticated API</span>
+            <span>Native Dashboard session</span>
             <strong>{data.status.auth_required ? "Gated" : "Local session"}</strong>
           </div>
         </aside>
@@ -343,7 +348,7 @@ export default function CommandCenterPage() {
 
       <footer className="cc-footer">
         <span><Sparkles aria-hidden="true" /> Labophase native surface</span>
-        <span><Database aria-hidden="true" /> Canonical Hermes APIs</span>
+        <span><Database aria-hidden="true" /> Canonical Hermes sessions</span>
         <span><Cpu aria-hidden="true" /> v{data.status.version}</span>
         <Link to="/system"><ServerCog aria-hidden="true" /> System control <ArrowUpRight aria-hidden="true" /></Link>
       </footer>

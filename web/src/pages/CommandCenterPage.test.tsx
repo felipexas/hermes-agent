@@ -1,3 +1,6 @@
+// @vitest-environment jsdom
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "react-router";
@@ -38,7 +41,7 @@ beforeEach(() => {
   getSessions.mockResolvedValue({
     sessions: [
       {
-        id: "session-1",
+        id: "session/one?branch=a",
         title: "Build native Labophase dashboard",
         source: "tui",
         model: "gpt-5",
@@ -90,6 +93,58 @@ describe("CommandCenterPage", () => {
     expect(getSessions).toHaveBeenCalledWith(6, 0, "", "recent");
     expect(getCronJobs).toHaveBeenCalledWith("all");
     expect(getProfiles).toHaveBeenCalledOnce();
+  });
+
+  it("routes new and recent conversations through native chat sessions", async () => {
+    const { default: CommandCenterPage } = await import("./CommandCenterPage");
+    await render(<CommandCenterPage />);
+    await act(async () => Promise.resolve());
+
+    const links = Array.from(container.querySelectorAll("a"));
+    const newChat = links.find((link) => link.textContent?.includes("Open live console"));
+    const recentChat = links.find((link) =>
+      link.textContent?.includes("Build native Labophase dashboard"),
+    );
+    const sessionsManagement = links.find(
+      (link) => link.getAttribute("aria-label") === "Open Live workstream",
+    );
+
+    expect(newChat?.getAttribute("href")).toBe("/chat");
+    expect(recentChat?.getAttribute("href")).toBe(
+      "/chat?resume=session%2Fone%3Fbranch%3Da",
+    );
+    expect(sessionsManagement?.getAttribute("href")).toBe("/sessions");
+  });
+
+  it("is registered as a native Dashboard route without a custom chat transport", () => {
+    const appSource = readFileSync(join(process.cwd(), "src/App.tsx"), "utf8");
+    const commandCenterSource = readFileSync(
+      join(process.cwd(), "src/pages/CommandCenterPage.tsx"),
+      "utf8",
+    );
+    const commandCenterStyles = readFileSync(
+      join(process.cwd(), "src/pages/command-center.css"),
+      "utf8",
+    );
+
+    expect(appSource).toContain('lazy(() => import("@/pages/CommandCenterPage"))');
+    expect(appSource).toContain('"/command-center": CommandCenterPage');
+    expect(appSource).toMatch(/path:\s*"\/command-center"[\s\S]*label:\s*"Command Center"/);
+    expect(commandCenterStyles).toContain(":focus-visible");
+    expect(commandCenterStyles).toContain("prefers-reduced-motion: reduce");
+    expect(commandCenterStyles).toMatch(/@media[^{}]*max-width:\s*760px/);
+
+    for (const forbidden of [
+      "EventSource",
+      "child_process",
+      "hermes chat",
+      "/api/chat",
+      "/api/agent-chat",
+      "<iframe",
+      "sessionToken",
+    ]) {
+      expect(commandCenterSource).not.toContain(forbidden);
+    }
   });
 
   it("shows a truthful degraded state when native APIs fail", async () => {
